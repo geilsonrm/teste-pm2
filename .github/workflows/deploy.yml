@@ -1,0 +1,46 @@
+name: Build and Deploy to Raspberry Pi
+
+on:
+  push:
+    branches:
+      - main  # Ou outro branch que você deseja monitorar
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Faz o build no ambiente GitHub Actions
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        run: npm run build
+
+      - name: Archive build
+        run: tar -czf build.tar.gz dist/  # Compacta o diretório de build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifact
+          path: build.tar.gz
+
+  deploy:
+    needs: build  # Aguarda o job "build" ser concluído
+    runs-on: self-hosted  # Executa na Raspberry Pi
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifact
+
+      - name: Extract build
+        run: tar -xzf build.tar.gz
+
+      - name: Start application with PM2
+        run: |
+          pm2 stop minha-aplicacao || true
+          pm2 start dist/index.js --name minha-aplicacao
+          pm2 save
